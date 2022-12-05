@@ -11,3 +11,10 @@ public @interface Value {
     String value();
     String delimiter() default ",";
 }
+
+/*
+题目中应用范围：
+boolean, int, String
+boolean[],int[],String[]
+List<?>,Set<?>,Map<?,?>,Boolean,Integer,String
+ */
