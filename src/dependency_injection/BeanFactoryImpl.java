@@ -4,8 +4,11 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Parameter;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 
 /**
@@ -73,10 +76,46 @@ public class BeanFactoryImpl implements BeanFactory {
     public <T> T createInstance(Class<T> clazz) {
         String clazzName = clazz.getName();
         String implClazzName;
+        Class<?> implClazz=null;
         if (injectProperties.containsKey(clazzName)){
             implClazzName = injectProperties.getProperty(clazzName);
-
+            try {
+                implClazz = Class.forName(implClazzName);
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+        }else {
+            try {
+                implClazz = Class.forName(clazzName);
+            }catch (Exception e){
+                e.printStackTrace();
+            }
         }
-        return null;
+        Constructor<?> constructor = null;
+        assert implClazz != null;
+        for (Constructor<?> c : implClazz.getDeclaredConstructors()) {
+            if (c.getAnnotation(Inject.class) != null) {
+                constructor = c;
+                break;
+            }
+        }
+        if (constructor == null){
+            constructor = implClazz.getDeclaredConstructors()[0];
+        }
+        Parameter[] parameters = constructor.getParameters();
+        Object[] objects = new Object[constructor.getParameterCount()];
+        for (Parameter p : parameters){
+            if (p.getAnnotation(Value.class) != null){
+                Value valueAnnotation = p.getAnnotation(Value.class);
+                String[] values = valueAnnotation.value().split(valueAnnotation.delimiter());
+            }
+        }
+        T object = null;
+        try {
+            object = (T) constructor.newInstance(objects);
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        return object;
     }
 }
