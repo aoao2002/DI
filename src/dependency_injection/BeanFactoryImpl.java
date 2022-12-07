@@ -5,11 +5,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Parameter;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Properties;
+import java.util.*;
 
 /**
  * TODO you should complete the class
@@ -104,10 +102,103 @@ public class BeanFactoryImpl implements BeanFactory {
         }
         Parameter[] parameters = constructor.getParameters();
         Object[] objects = new Object[constructor.getParameterCount()];
-        for (Parameter p : parameters){
+        for (int i= 0; i < parameters.length; i++) {
+            Parameter p = parameters[i];
             if (p.getAnnotation(Value.class) != null){
                 Value valueAnnotation = p.getAnnotation(Value.class);
-                String[] values = valueAnnotation.value().split(valueAnnotation.delimiter());
+                String annotation = valueAnnotation.value();
+                if (valueProperties.containsKey(annotation)){
+                    annotation = valueProperties.getProperty(annotation);
+                }
+                String[] values = annotation.split(valueAnnotation.delimiter());
+                if (p.getType()==int.class){
+                    for(String value : values){
+                        try{
+                            int integer = Integer.parseInt(value);
+                            objects[i] = integer;
+                            break;
+                        }catch (Exception e){
+//                                e.printStackTrace();
+                        }
+                    }
+                }
+                if (p.getType()==boolean.class){
+                    for(String value : values){
+                        try{
+                            boolean bool = Boolean.parseBoolean(value);
+                            objects[i] = bool;
+                            break;
+                        }catch (Exception e){
+//                                e.printStackTrace();
+                        }
+                    }
+                }
+                if (p.getType()==String.class){
+                    objects[i] = values;
+                }
+                if (p.getType()==int[].class){
+                    int[] ints = new int[values.length];
+                    for (int j = 0; j < values.length; j++) {
+                        ints[j] = Integer.parseInt(values[j]);
+                    }
+                    objects[i] = ints;
+                }if (p.getType()==boolean[].class){
+                    boolean[] booleans = new boolean[values.length];
+                    for (int j = 0; j < values.length; j++) {
+                        booleans[j] = Boolean.parseBoolean(values[j]);
+                    }
+                    objects[i] = booleans;
+                }if (p.getType()==String[].class){
+                    objects[i] = values;
+                }if (p.getType()==List.class){
+                    List<Object> list = new ArrayList<>();
+                    for (String value : values) {
+                        if (valueProperties.containsKey(value)){
+                            value = valueProperties.getProperty(value);
+                        }
+                        if (value.equals("true")||value.equals("false")){
+                            list.add(Boolean.parseBoolean(value));
+                        }else if (value.matches("[0-9]+")){
+                            list.add(Integer.parseInt(value));
+                        }else {
+                            list.add(value);
+                        }
+                    }
+                    objects[i] = list;
+                }if (p.getType()==Set.class){
+                    Set<Object> set = new HashSet<>();
+                    for (String value : values) {
+                        if (valueProperties.containsKey(value)){
+                            value = valueProperties.getProperty(value);
+                        }
+                        if (value.equals("true")||value.equals("false")){
+                            set.add(Boolean.parseBoolean(value));
+                        }else if (value.matches("[0-9]+")){
+                            set.add(Integer.parseInt(value));
+                        }else {
+                            set.add(value);
+                        }
+                    }
+                    objects[i] = set;
+                }if (p.getType()==Map.class){
+                    Map<Object,Object> map = new HashMap<>();
+                    for (String value : values) {
+                        if (valueProperties.containsKey(value)){
+                            value = valueProperties.getProperty(value);
+                        }
+                        String[] kv = value.split(":");
+                        if (kv[1].equals("true")||kv[1].equals("false")){
+                            map.put(kv[0],Boolean.parseBoolean(kv[1]));
+                        }else if (kv[1].matches("[0-9]+")){
+                            map.put(kv[0],Integer.parseInt(kv[1]));
+                        }else {
+                            map.put(kv[0],kv[1]);
+                        }
+                    }
+                    objects[i] = map;
+                }
+            }else {
+                objects[i] = createInstance(p.getType());
             }
         }
         T object = null;
@@ -115,6 +206,162 @@ public class BeanFactoryImpl implements BeanFactory {
             object = (T) constructor.newInstance(objects);
         }catch (Exception e){
             e.printStackTrace();
+        }
+        Field[] fields = implClazz.getDeclaredFields();
+        for (Field field : fields) {
+            if (field.getAnnotation(Value.class) != null) {
+                Value valueAnnotation = field.getAnnotation(Value.class);
+                String annotation = valueAnnotation.value();
+                if (valueProperties.containsKey(annotation)){
+                    annotation = valueProperties.getProperty(annotation);
+                }
+                String[] values = annotation.split(valueAnnotation.delimiter());
+                if (field.getType() == int.class) {
+                    try {
+                        field.setAccessible(true);
+                        for(String value : values){
+                            try{
+                                int integer = Integer.parseInt(value);
+                                field.set(object, integer);
+                                break;
+                            }catch (Exception e){
+//                                e.printStackTrace();
+                            }
+                        }
+                        field.setAccessible(false);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                if (field.getType() == boolean.class) {
+                    try {
+                        field.setAccessible(true);
+                        for(String value : values){
+                            try{
+                                boolean bool = Boolean.parseBoolean(value);
+                                field.set(object, bool);
+                                break;
+                            }catch (Exception e){
+//                                e.printStackTrace();
+                            }
+                        }
+                        field.setAccessible(false);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                if (field.getType() == String.class) {
+                    try {
+                        field.setAccessible(true);
+                        field.set(object, values[0]);
+                        field.setAccessible(false);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                if (field.getType() == int[].class) {
+                    int[] ints = new int[values.length];
+                    for (int j = 0; j < values.length; j++) {
+                        ints[j] = Integer.parseInt(values[j]);
+                    }
+                    try {
+                        field.setAccessible(true);
+                        field.set(object, ints);
+                        field.setAccessible(false);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                if (field.getType() == boolean[].class) {
+                    boolean[] booleans = new boolean[values.length];
+                    for (int j = 0; j < values.length; j++) {
+                        booleans[j] = Boolean.parseBoolean(values[j]);
+                    }
+                    try {
+                        field.setAccessible(true);
+                        field.set(object, booleans);
+                        field.setAccessible(false);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                if (field.getType() == String[].class) {
+                    try {
+                        field.setAccessible(true);
+                        field.set(object, values);
+                        field.setAccessible(false);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                if (field.getType() == List.class) {
+                    List<Object> list = new ArrayList<>();
+                    for (String value : values) {
+                        if (valueProperties.containsKey(value)) {
+                            value = valueProperties.getProperty(value);
+                        }
+                        if (value.equals("true") || value.equals("false")) {
+                            list.add(Boolean.parseBoolean(value));
+                        } else if (value.matches("[0-9]+")) {
+                            list.add(Integer.parseInt(value));
+                        } else {
+                            list.add(value);
+                        }
+                    }
+                    try {
+                        field.setAccessible(true);
+                        field.set(object, list);
+                        field.setAccessible(false);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                if (field.getType() == Set.class) {
+                    Set<Object> set = new HashSet<>();
+                    for (String value : values) {
+                        if (valueProperties.containsKey(value)) {
+                            value = valueProperties.getProperty(value);
+                        }
+                        if (value.equals("true") || value.equals("false")) {
+                            set.add(Boolean.parseBoolean(value));
+                        } else if (value.matches("[0-9]+")) {
+                            set.add(Integer.parseInt(value));
+                        } else {
+                            set.add(value);
+                        }
+                    }
+                    try {
+                        field.setAccessible(true);
+                        field.set(object, set);
+                        field.setAccessible(false);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                if (field.getType() == Map.class) {
+                    Map<Object, Object> map = new HashMap<>();
+                    for (String value : values) {
+                        if (valueProperties.containsKey(value)) {
+                            value = valueProperties.getProperty(value);
+                        }
+                        String[] kv = value.split(":");
+                        if (kv[1].equals("true") || kv[1].equals("false")) {
+                            map.put(kv[0], Boolean.parseBoolean(kv[1]));
+                        } else if (kv[1].matches("[0-9]+")) {
+                            map.put(kv[0], Integer.parseInt(kv[1]));
+                        } else {
+                            map.put(kv[0], kv[1]);
+                        }
+                    }
+                    try {
+                        field.setAccessible(true);
+                        field.set(object, map);
+                        field.setAccessible(false);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
         }
         return object;
     }
